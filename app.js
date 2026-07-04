@@ -62,6 +62,7 @@ const creditLookup = {
 
 const els = {
   addRow: document.querySelector("#addRow"),
+  autoCropImage: document.querySelector("#autoCropImage"),
   cgpaValue: document.querySelector("#cgpaValue"),
   chooseFile: document.querySelector("#chooseFile"),
   clearAll: document.querySelector("#clearAll"),
@@ -93,6 +94,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dis
 seedRows();
 
 els.fileInput.addEventListener("change", (event) => handleFile(event.target.files?.[0]));
+els.autoCropImage.addEventListener("click", () => autoCropImage());
+els.cropImage.addEventListener("click", () => toggleCropMode());
 els.chooseFile.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") {
     event.preventDefault();
@@ -101,7 +104,6 @@ els.chooseFile.addEventListener("keydown", (event) => {
 });
 els.addRow.addEventListener("click", () => addRow());
 els.clearAll.addEventListener("click", clearAll);
-els.cropImage.addEventListener("click", () => toggleCropMode());
 els.parseText.addEventListener("click", () => parseAndRender(els.rawText.value));
 els.resetPreview.addEventListener("click", () => restoreOriginalPreview());
 els.scanAgain.addEventListener("click", () => currentFile && handleFile(currentFile));
@@ -495,6 +497,130 @@ function setupCropInteraction() {
 
   cropLayer.style.display = cropMode ? "block" : "none";
   cropBox.style.display = "none";
+}
+
+async function autoCropImage() {
+  if (!currentImageUrl && !currentImageCanvas) {
+    els.statusText.textContent = "No image loaded.";
+    return;
+  }
+
+  try {
+    els.statusText.textContent = "Auto-detecting table boundaries...";
+    setBusy(true, "Finding table area...");
+
+    const source = currentImageCanvas || await loadImageElement(currentImageUrl);
+    const sourceWidth = source.naturalWidth || source.width;
+    const sourceHeight = source.naturalHeight || source.height;
+
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error("Invalid image dimensions");
+    }
+
+    // Create a canvas for edge detection
+    const canvas = document.createElement("canvas");
+    canvas.width = sourceWidth;
+    canvas.height = sourceHeight;
+    const ctx = canvas.getContext("2d");
+    const sourceCanvas = source instanceof HTMLCanvasElement ? source : null;
+    ctx.drawImage(sourceCanvas || source, 0, 0);
+
+    // Get image data for analysis
+    const imageData = ctx.getImageData(0, 0, sourceWidth, sourceHeight);
+    const data = imageData.data;
+
+    // Detect horizontal and vertical edges (text/table areas are darker)
+    const horizontalEdges = new Array(sourceHeight).fill(0);
+    const verticalEdges = new Array(sourceWidth).fill(0);
+
+    // Analyze brightness patterns to find table boundaries
+    for (let y = 0; y < sourceHeight; y++) {
+      for (let x = 0; x < sourceWidth; x++) {
+        const i = (y * sourceWidth + x) * 4;
+        // Calculate brightness (0=black, 255=white)
+        const brightness = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        // Dark areas (text/table) contribute to edge score
+        const darkness = 255 - brightness;
+        horizontalEdges[y] += darkness;
+        verticalEdges[x] += darkness;
+      }
+    }
+
+    // Normalize
+    const maxH = Math.max(...horizontalEdges);
+    const maxV = Math.max(...verticalEdges);
+    const threshold = Math.max(maxH, maxV) * 0.2;
+
+    // Find top boundary (first row with significant content)
+    let top = 0;
+    for (let y = 0; y < sourceHeight; y++) {
+      if (horizontalEdges[y] > threshold) {
+        top = Math.max(0, y - 10);
+        break;
+      }
+    }
+
+    // Find bottom boundary (last row with significant content)
+    let bottom = sourceHeight;
+    for (let y = sourceHeight - 1; y >= 0; y--) {
+      if (horizontalEdges[y] > threshold) {
+        bottom = Math.min(sourceHeight, y + 10);
+        break;
+      }
+    }
+
+    // Find left boundary
+    let left = 0;
+    for (let x = 0; x < sourceWidth; x++) {
+      if (verticalEdges[x] > threshold) {
+        left = Math.max(0, x - 10);
+        break;
+      }
+    }
+
+    // Find right boundary
+    let right = sourceWidth;
+    for (let x = sourceWidth - 1; x >= 0; x--) {
+      if (verticalEdges[x] > threshold) {
+        right = Math.min(sourceWidth, x + 10);
+        break;
+      }
+    }
+
+    // Ensure minimum dimensions
+    let width = right - left;
+    let height = bottom - top;
+    if (width < 100) {
+      left = Math.max(0, left - (100 - width) / 2);
+      right = Math.min(sourceWidth, right + (100 - width) / 2);
+      width = right - left;
+    }
+    if (height < 100) {
+      top = Math.max(0, top - (100 - height) / 2);
+      bottom = Math.min(sourceHeight, bottom + (100 - height) / 2);
+      height = bottom - top;
+    }
+
+    // Create cropped canvas
+    const croppedCanvas = document.createElement("canvas");
+    croppedCanvas.width = width;
+    croppedCanvas.height = height;
+    const croppedCtx = croppedCanvas.getContext("2d");
+    croppedCtx.drawImage(sourceCanvas || source, left, top, width, height, 0, 0, width, height);
+
+    currentOriginalImage = currentImageCanvas || await loadImageElement(currentImageUrl);
+    renderCanvasPreview(croppedCanvas);
+    els.statusText.textContent = "Scanning auto-cropped area with OCR...";
+    const ocrText = await ocrCanvas(croppedCanvas);
+    els.rawText.value = ocrText;
+    parseAndRender(ocrText);
+    els.statusText.textContent = "Auto-cropped area used for OCR. Review the extracted rows and adjust if needed.";
+  } catch (error) {
+    console.error("Auto-crop error:", error);
+    els.statusText.textContent = "Auto-crop failed: " + error.message + ". Try manual crop or check image quality.";
+  } finally {
+    setBusy(false);
+  }
 }
 
 function toggleCropMode() {
