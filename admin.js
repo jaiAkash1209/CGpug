@@ -28,8 +28,8 @@ function renderRecords(records) {
 
   // Sort by GPA descending (highest first)
   const sortedRecords = [...records].sort((a, b) => {
-    const gpaA = parseFloat(a.cgpa || 0);
-    const gpaB = parseFloat(b.cgpa || 0);
+    const gpaA = parseFloat(a.cgpa ?? a.gpa ?? 0);
+    const gpaB = parseFloat(b.cgpa ?? b.gpa ?? 0);
     return gpaB - gpaA;
   });
 
@@ -58,7 +58,7 @@ function createStudentGroup(studentRecords) {
 
   const firstRecord = studentRecords[0];
   const student = firstRecord.student || {};
-  const highestGpa = Math.max(...studentRecords.map(r => parseFloat(r.cgpa || 0)));
+  const highestGpa = Math.max(...studentRecords.map((r) => parseFloat(r.cgpa ?? r.gpa ?? 0)));
 
   // Student header (shown once)
   const header = document.createElement("div");
@@ -93,8 +93,10 @@ function createRecordCard(record, showStudentInfo = true) {
   const arrears = (record.rows || []).filter((row) => row.result === "RA" || row.grade === "U" || row.grade === "F" || row.grade === "AB");
   const student = record.student || {};
 
+  const displayGpa = record.cgpa ?? record.gpa ?? "0.00";
+
   let headHtml = `
-    <div class="record-score">GPA ${escapeHtml(record.cgpa || "0.00")}</div>
+    <div class="record-score">GPA ${escapeHtml(displayGpa)}</div>
   `;
 
   if (showStudentInfo) {
@@ -103,7 +105,7 @@ function createRecordCard(record, showStudentInfo = true) {
         <strong>${escapeHtml(student.name || "Unknown student")}</strong>
         <span>${escapeHtml(student.registrationNo || "No registration number")}</span>
       </div>
-      <div class="record-score">GPA ${escapeHtml(record.cgpa || "0.00")}</div>
+      <div class="record-score">GPA ${escapeHtml(displayGpa)}</div>
     `;
   }
 

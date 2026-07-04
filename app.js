@@ -365,8 +365,10 @@ async function autoSaveSubmission(fileToSave) {
 
   const formData = new FormData();
   if (fileToSave) formData.append("resultFile", fileToSave);
+  const gpaValue = els.cgpaValue?.textContent || "0.00";
   formData.append("payload", JSON.stringify({
-    gpa: els.cgpaValue?.textContent || "0.00",
+    gpa: gpaValue,
+    cgpa: gpaValue,
     rows,
     rawText: els.rawText.value,
     student: extractStudentInfo(els.rawText.value),
