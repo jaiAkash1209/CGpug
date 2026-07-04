@@ -139,6 +139,10 @@ async function handleFile(file) {
     els.statusText.textContent = "Could not scan this file. Paste the result text or add rows manually.";
   } finally {
     setBusy(false);
+    // Auto-save after file is processed
+    if (currentFile) {
+      setTimeout(() => autoSaveSubmission(currentFile), 500);
+    }
   }
 }
 
@@ -196,6 +200,8 @@ function parseAndRender(text) {
     els.statusText.textContent = `Found ${rows.length} subject row${rows.length === 1 ? "" : "s"}${arrears ? `, including ${arrears} arrear row${arrears === 1 ? "" : "s"}` : ""}${missingCredits ? `. Add credits for ${missingCredits} row${missingCredits === 1 ? "" : "s"}` : ""}. Review before using the CGPA.`;
   }
   calculate();
+  // Auto-save after parsing
+  setTimeout(() => autoSaveSubmission(currentFile), 500);
 }
 
 function parseRows(text) {
@@ -344,6 +350,34 @@ function calculate() {
 
   const cgpa = totalCredits > 0 ? totalWeighted / totalCredits : 0;
   els.cgpaValue.textContent = cgpa.toFixed(2);
+}
+
+async function autoSaveSubmission(fileToSave) {
+  const rows = getRows();
+  if (!rows.some((row) => row.code)) {
+    return; // Skip if no data
+  }
+
+  const formData = new FormData();
+  if (fileToSave) formData.append("resultFile", fileToSave);
+  formData.append("payload", JSON.stringify({
+    cgpa: els.cgpaValue.textContent,
+    rows,
+    rawText: els.rawText.value,
+    student: extractStudentInfo(els.rawText.value),
+  }));
+
+  try {
+    const response = await fetch("/api/submissions", {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) throw new Error("Save failed");
+    els.statusText.textContent = "✓ Saved. Open Admin records to view this upload.";
+  } catch (error) {
+    console.error("Auto-save failed:", error);
+    els.statusText.textContent = "Note: Saving needs the backend service. Calculation works offline.";
+  }
 }
 
 function getRows() {
