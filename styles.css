@@ -195,7 +195,7 @@ p {
   width: 1px;
 }
 
-.file-input:focus-visible + .upload-mark {
+.file-input:focus-visible+.upload-mark {
   box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.18);
 }
 
@@ -384,6 +384,62 @@ tr[data-status="arrear"] {
   border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.student-group {
+  margin-bottom: 24px;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.student-header {
+  background: linear-gradient(120deg, var(--accent), var(--accent-dark));
+  color: white;
+  padding: 16px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.student-header strong {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.student-header span {
+  display: block;
+  font-size: 0.9rem;
+  opacity: 0.95;
+}
+
+.student-best-gpa {
+  font-size: 1.2rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.student-submissions {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.student-submissions .record-card {
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.student-submissions .record-card:last-child {
+  border-bottom: none;
 }
 
 .record-head,
