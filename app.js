@@ -61,7 +61,7 @@ const creditLookup = {
 
 const els = {
   addRow: document.querySelector("#addRow"),
-  cgpaValue: document.querySelector("#cgpaValue"),
+  gpaValue: document.querySelector("#gpaValue"),
   chooseFile: document.querySelector("#chooseFile"),
   clearAll: document.querySelector("#clearAll"),
   courseRows: document.querySelector("#courseRows"),
@@ -197,7 +197,7 @@ function parseAndRender(text) {
   } else {
     const arrears = rows.filter((row) => row.result === "RA" || row.grade === "U" || row.grade === "F" || row.grade === "AB").length;
     const missingCredits = rows.filter((row) => row.credits === "").length;
-    els.statusText.textContent = `Found ${rows.length} subject row${rows.length === 1 ? "" : "s"}${arrears ? `, including ${arrears} arrear row${arrears === 1 ? "" : "s"}` : ""}${missingCredits ? `. Add credits for ${missingCredits} row${missingCredits === 1 ? "" : "s"}` : ""}. Review before using the CGPA.`;
+    els.statusText.textContent = `Found ${rows.length} subject row${rows.length === 1 ? "" : "s"}${arrears ? `, including ${arrears} arrear row${arrears === 1 ? "" : "s"}` : ""}${missingCredits ? `. Add credits for ${missingCredits} row${missingCredits === 1 ? "" : "s"}` : ""}. Review before using the GPA.`;
   }
   calculate();
   // Auto-save after parsing
@@ -348,8 +348,8 @@ function calculate() {
     totalWeighted += weighted;
   });
 
-  const cgpa = totalCredits > 0 ? totalWeighted / totalCredits : 0;
-  els.cgpaValue.textContent = cgpa.toFixed(2);
+  const gpa = totalCredits > 0 ? totalWeighted / totalCredits : 0;
+  els.gpaValue.textContent = gpa.toFixed(2);
 }
 
 async function autoSaveSubmission(fileToSave) {
@@ -361,7 +361,7 @@ async function autoSaveSubmission(fileToSave) {
   const formData = new FormData();
   if (fileToSave) formData.append("resultFile", fileToSave);
   formData.append("payload", JSON.stringify({
-    cgpa: els.cgpaValue.textContent,
+    gpa: els.gpaValue.textContent,
     rows,
     rawText: els.rawText.value,
     student: extractStudentInfo(els.rawText.value),

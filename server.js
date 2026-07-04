@@ -48,12 +48,12 @@ app.post("/api/submissions", upload.single("resultFile"), async (req, res) => {
     createdAt: new Date().toISOString(),
     file: req.file
       ? {
-          originalName: req.file.originalname,
-          storedName: req.file.filename,
-          url: `/uploads/${req.file.filename}`,
-          size: req.file.size,
-          mimeType: req.file.mimetype,
-        }
+        originalName: req.file.originalname,
+        storedName: req.file.filename,
+        url: `/uploads/${req.file.filename}`,
+        size: req.file.size,
+        mimeType: req.file.mimetype,
+      }
       : null,
     ...payload,
   };
@@ -64,7 +64,7 @@ app.post("/api/submissions", upload.single("resultFile"), async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Result CGPA Scanner running on port ${port}`);
+  console.log(`Result GPA Scanner running on port ${port}`);
 });
 
 async function readRecords() {

@@ -43,7 +43,7 @@ function createRecordCard(record) {
         <strong>${escapeHtml(student.name || "Unknown student")}</strong>
         <span>${escapeHtml(student.registrationNo || "No registration number")}</span>
       </div>
-      <div class="record-score">CGPA ${escapeHtml(record.cgpa || "0.00")}</div>
+      <div class="record-score">GPA ${escapeHtml(record.cgpa || "0.00")}</div>
     </div>
     <div class="record-meta">
       <span>${new Date(record.createdAt).toLocaleString()}</span>
