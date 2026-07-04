@@ -33,58 +33,25 @@ function renderRecords(records) {
     return gpaB - gpaA;
   });
 
-  // Group by registration number
-  const groupedByStudent = new Map();
+  // Keep only the best record per student name
+  const bestByName = new Map();
   for (const record of sortedRecords) {
-    const regNo = record.student?.registrationNo || "Unknown";
-    if (!groupedByStudent.has(regNo)) {
-      groupedByStudent.set(regNo, []);
+    const studentName = record.student?.name || "Unknown";
+    if (!bestByName.has(studentName)) {
+      bestByName.set(studentName, record);
     }
-    groupedByStudent.get(regNo).push(record);
   }
 
-  adminStatus.textContent = `${records.length} saved submission${records.length === 1 ? "" : "s"} from ${groupedByStudent.size} student${groupedByStudent.size === 1 ? "" : "s"}.`;
+  const uniqueRecords = Array.from(bestByName.values());
+  adminStatus.textContent = `${uniqueRecords.length} student${uniqueRecords.size === 1 ? "" : "s"} with ${records.length} total submission${records.length === 1 ? "" : "s"}.`;
 
-  // Create cards for each student group
-  const cards = Array.from(groupedByStudent.values()).map((studentRecords) =>
-    createStudentGroup(studentRecords)
+  // Create cards for each unique student (best record only)
+  const cards = uniqueRecords.map((record) =>
+    createRecordCard(record, true)
   );
   recordsList.append(...cards);
 }
 
-function createStudentGroup(studentRecords) {
-  const container = document.createElement("section");
-  container.className = "student-group";
-
-  const firstRecord = studentRecords[0];
-  const student = firstRecord.student || {};
-  const highestGpa = Math.max(...studentRecords.map((r) => parseFloat(r.cgpa ?? r.gpa ?? 0)));
-
-  // Student header (shown once)
-  const header = document.createElement("div");
-  header.className = "student-header";
-  header.innerHTML = `
-    <div>
-      <strong>${escapeHtml(student.name || "Unknown student")}</strong>
-      <span>${escapeHtml(student.registrationNo || "No registration number")}</span>
-      <span>${escapeHtml(student.department || "Department not detected")}</span>
-    </div>
-    <div class="student-best-gpa">Best GPA: ${highestGpa.toFixed(2)}</div>
-  `;
-  container.appendChild(header);
-
-  // All submissions for this student
-  const submissionsContainer = document.createElement("div");
-  submissionsContainer.className = "student-submissions";
-
-  studentRecords.forEach((record) => {
-    const card = createRecordCard(record, false); // false = don't show student name in card
-    submissionsContainer.appendChild(card);
-  });
-
-  container.appendChild(submissionsContainer);
-  return container;
-}
 
 function createRecordCard(record, showStudentInfo = true) {
   const card = document.createElement("article");
