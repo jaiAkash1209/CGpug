@@ -399,7 +399,6 @@ async function autoSaveSubmission(fileToSave) {
       body: formData,
     });
     if (!response.ok) throw new Error("Save failed");
-    els.statusText.textContent = "✓ Saved. Open Admin records to view this upload.";
   } catch (error) {
     console.error("Auto-save failed:", error);
     els.statusText.textContent = "Note: Saving needs the backend service. Calculation works offline.";
