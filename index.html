@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Result CGPA Scanner</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Result scanner</p>
+            <h1>CGPA Calculator</h1>
+          </div>
+          <div class="score-panel" aria-live="polite">
+            <span>CGPA</span>
+            <strong id="cgpaValue">0.00</strong>
+          </div>
+        </header>
+
+        <section class="tool-grid">
+          <div class="upload-zone" id="dropZone">
+            <input id="fileInput" class="file-input" type="file" accept="image/*,.pdf" />
+            <div class="upload-mark">+</div>
+            <h2>Upload result PDF or screenshot</h2>
+            <p>Drop a file here or choose one from your device. The scan will pull course codes, credits, and grades where it can.</p>
+            <label class="file-button" id="chooseFile" for="fileInput" role="button" tabindex="0">Choose file</label>
+          </div>
+
+          <div class="preview-pane">
+            <div class="pane-head">
+              <span>Preview</span>
+              <button type="button" class="ghost" id="clearAll">Clear</button>
+            </div>
+            <div class="preview-body" id="previewBody">
+              <p>No file selected yet.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="result-area">
+          <div class="actions-row">
+            <div>
+              <h2>Subjects</h2>
+              <p id="statusText">Upload a result page, then review the extracted rows before calculating.</p>
+            </div>
+            <div class="action-buttons">
+              <button type="button" class="secondary" id="addRow">Add row</button>
+              <button type="button" class="secondary" id="saveResult">Save result</button>
+              <button type="button" id="scanAgain">Scan again</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Course code</th>
+                  <th>Course title</th>
+                  <th>Credits</th>
+                  <th>Grade</th>
+                  <th>Result</th>
+                  <th>Point</th>
+                  <th>Weighted</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="courseRows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="manual-panel">
+          <div>
+            <h2>Paste extracted text</h2>
+            <p>Useful when the PDF has selectable text or OCR needs a quick correction.</p>
+          </div>
+          <textarea id="rawText" spellcheck="false" placeholder="Example: 6 4 U24EC401 Analog and Digital Communication U RA"></textarea>
+          <button type="button" class="secondary" id="parseText">Parse pasted text</button>
+        </section>
+      </section>
+    </main>
+
+    <template id="rowTemplate">
+      <tr>
+        <td><input class="code" placeholder="U24EC401" /></td>
+        <td><input class="title" placeholder="Course title" /></td>
+        <td><input class="credits" type="number" min="0" step="0.5" placeholder="3" /></td>
+        <td>
+          <select class="grade">
+            <option value="">Select</option>
+            <option>O</option>
+            <option>A+</option>
+            <option>A</option>
+            <option>B+</option>
+            <option>B</option>
+            <option>C</option>
+            <option>P</option>
+            <option>U</option>
+            <option>F</option>
+            <option>AB</option>
+          </select>
+        </td>
+        <td>
+          <select class="result">
+            <option value="">Select</option>
+            <option>Pass</option>
+            <option>RA</option>
+            <option>Fail</option>
+          </select>
+        </td>
+        <td><input class="point" type="number" min="0" max="10" step="0.1" placeholder="0" /></td>
+        <td class="weighted">0.00</td>
+        <td><button type="button" class="icon-button remove" aria-label="Remove row">x</button></td>
+      </tr>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
