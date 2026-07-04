@@ -33,6 +33,15 @@ const upload = multer({
 });
 
 app.use(["/admin.html", "/admin.js", "/uploads"], requireAdmin);
+app.use((req, res, next) => {
+  const shouldDisableCache = req.path.endsWith(".html") || req.path.endsWith(".js") || req.path.endsWith(".css");
+  if (shouldDisableCache) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+  }
+  next();
+});
 app.use(express.static(__dirname));
 app.use("/uploads", express.static(uploadDir));
 
