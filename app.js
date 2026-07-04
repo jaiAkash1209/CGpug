@@ -178,14 +178,19 @@ async function ocrImage(file) {
         els.statusText.textContent = `Scanning screenshot... ${Math.round(message.progress * 100)}%`;
       }
     },
+    tessedit_pageseg_mode: "6",
+    preserve_interword_spaces: "1",
   });
-  return result.data.text;
+  return normalizeOcrText(result.data.text);
 }
 
 async function ocrCanvas(canvas) {
   setBusy(true, "Scanning PDF page image with OCR...");
-  const result = await Tesseract.recognize(canvas, "eng");
-  return result.data.text;
+  const result = await Tesseract.recognize(canvas, "eng", {
+    tessedit_pageseg_mode: "6",
+    preserve_interword_spaces: "1",
+  });
+  return normalizeOcrText(result.data.text);
 }
 
 function parseAndRender(text) {
@@ -206,12 +211,15 @@ function parseAndRender(text) {
 }
 
 function parseRows(text) {
-  const cleaned = text
+  const normalizedText = normalizeOcrText(text);
+  const cleaned = normalizedText
     .replace(/\r/g, "\n")
     .replace(/[|]/g, " ")
     .replace(/\s+/g, " ")
     .replace(/([A-Z]\d{2}[A-Z]{2}\d{3})/g, "\n$1")
-    .replace(/(U\d{2}[A-Z]{2}\d{3})/g, "\n$1");
+    .replace(/(U\d{2}[A-Z]{2}\d{3})/g, "\n$1")
+    .replace(/\s*([A-Z]\d{2}[A-Z]{2}\d{3})/g, "\n$1")
+    .replace(/\s*(U\d{2}[A-Z]{2}\d{3})/g, "\n$1");
 
   const lines = cleaned
     .split("\n")
@@ -246,17 +254,21 @@ function parseRows(text) {
 
 function findGrade(text, result) {
   const tokens = [...text.toUpperCase().matchAll(/(?:^|\s)(O|0|A\+|A|B\+|B|C|P|U|F|AB)(?=\s|$)/g)].map((match) => match[1]);
-  if (!tokens) return "";
-  const found = tokens.reverse().find((token) => token === "0" || Object.hasOwn(gradePoints, token));
+  if (!tokens.length) return "";
+  const found = tokens.slice().reverse().find((token) => token === "0" || Object.hasOwn(gradePoints, token));
   if (found === "0" && result === "Pass") return "O";
   if (found === "0") return "";
   return found || "";
 }
 
 function findResult(text) {
-  const match = text.match(/(?:^|\s)(PASS|RA|FAIL)(?=\s|$)/i);
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  const match = cleaned.match(/(?:^|\s)(PASS|RA|FAIL|REAPPEAR|ARREAR)(?=\s|$)/i);
   if (!match) return "";
-  return match[1].toUpperCase() === "PASS" ? "Pass" : match[1].toUpperCase();
+  const normalized = match[1].toUpperCase();
+  if (normalized === "PASS") return "Pass";
+  if (normalized === "ARREAR" || normalized === "REAPPEAR") return "RA";
+  return normalized;
 }
 
 function findCredits(text, grade) {
@@ -445,6 +457,17 @@ function setBusy(isBusy, message = "") {
   });
   els.chooseFile.setAttribute("aria-disabled", String(isBusy));
   if (message) els.statusText.textContent = message;
+}
+
+function normalizeOcrText(text) {
+  return String(text || "")
+    .replace(/\r/g, "\n")
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/\s*\n\s*/g, "\n")
+    .replace(/([A-Z])\s+(?=[A-Z]\d{2}[A-Z]{2}\d{3})/g, "$1")
+    .replace(/\b([A-Z])\s+(?=[A-Z]{2}\d{3})/g, "$1")
+    .trim();
 }
 
 function escapeRegex(value) {
