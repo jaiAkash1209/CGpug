@@ -552,38 +552,61 @@ async function applyCropSelection() {
   const preview = els.previewBody.querySelector("img, canvas");
   if (!preview) return;
 
-  const rect = els.previewBody.getBoundingClientRect();
-  const previewRect = preview.getBoundingClientRect();
-  const scaleX = preview.naturalWidth ? preview.naturalWidth / previewRect.width : 1;
-  const scaleY = preview.naturalHeight ? preview.naturalHeight / previewRect.height : 1;
-  let x = Math.max(0, Math.round((cropStart.x - (previewRect.left - rect.left)) * scaleX));
-  let y = Math.max(0, Math.round((cropStart.y - (previewRect.top - rect.top)) * scaleY));
-  let width = Math.max(1, Math.round((cropCurrent.x - cropStart.x) * scaleX));
-  let height = Math.max(1, Math.round((cropCurrent.y - cropStart.y) * scaleY));
+  try {
+    els.statusText.textContent = "Processing crop selection...";
+    setBusy(true, "Processing selected area...");
 
-  const source = currentImageCanvas || await loadImageElement(currentImageUrl);
-  const sourceWidth = source.naturalWidth || source.width;
-  const sourceHeight = source.naturalHeight || source.height;
+    const rect = els.previewBody.getBoundingClientRect();
+    const previewRect = preview.getBoundingClientRect();
+    const scaleX = preview.naturalWidth ? preview.naturalWidth / previewRect.width : 1;
+    const scaleY = preview.naturalHeight ? preview.naturalHeight / previewRect.height : 1;
+    let x = Math.max(0, Math.round((cropStart.x - (previewRect.left - rect.left)) * scaleX));
+    let y = Math.max(0, Math.round((cropStart.y - (previewRect.top - rect.top)) * scaleY));
+    let width = Math.max(1, Math.round((cropCurrent.x - cropStart.x) * scaleX));
+    let height = Math.max(1, Math.round((cropCurrent.y - cropStart.y) * scaleY));
 
-  const padding = Math.round(Math.max(sourceWidth, sourceHeight) * 0.15);
-  const sx = Math.max(0, Math.min(x, x + width) - padding);
-  const sy = Math.max(0, Math.min(y, y + height) - padding);
-  const sw = Math.min(sourceWidth - sx, Math.abs(width) + padding * 2);
-  const sh = Math.min(sourceHeight - sy, Math.abs(height) + padding * 2);
+    const source = currentImageCanvas || await loadImageElement(currentImageUrl);
+    const sourceWidth = source.naturalWidth || source.width;
+    const sourceHeight = source.naturalHeight || source.height;
 
-  const croppedCanvas = document.createElement("canvas");
-  croppedCanvas.width = sw;
-  croppedCanvas.height = sh;
-  const context = croppedCanvas.getContext("2d");
-  const sourceCanvas = source instanceof HTMLCanvasElement ? source : null;
-  context.drawImage(sourceCanvas || source, sx, sy, sw, sh, 0, 0, sw, sh);
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error("Invalid image dimensions");
+    }
 
-  currentOriginalImage = currentImageCanvas || await loadImageElement(currentImageUrl);
-  renderCanvasPreview(croppedCanvas);
-  const ocrText = await ocrCanvas(croppedCanvas);
-  els.rawText.value = ocrText;
-  parseAndRender(ocrText);
-  els.statusText.textContent = "Selected area used for OCR (expanded for full context). Review the extracted rows and adjust if needed.";
+    const padding = Math.min(100, Math.round(Math.max(sourceWidth, sourceHeight) * 0.1));
+    const sx = Math.max(0, Math.min(x, x + width) - padding);
+    const sy = Math.max(0, Math.min(y, y + height) - padding);
+    let sw = Math.min(sourceWidth - sx, Math.abs(width) + padding * 2);
+    let sh = Math.min(sourceHeight - sy, Math.abs(height) + padding * 2);
+
+    sw = Math.max(100, Math.min(sw, sourceWidth));
+    sh = Math.max(100, Math.min(sh, sourceHeight));
+
+    const croppedCanvas = document.createElement("canvas");
+    croppedCanvas.width = sw;
+    croppedCanvas.height = sh;
+
+    if (croppedCanvas.width <= 0 || croppedCanvas.height <= 0) {
+      throw new Error("Crop area too small");
+    }
+
+    const context = croppedCanvas.getContext("2d");
+    const sourceCanvas = source instanceof HTMLCanvasElement ? source : null;
+    context.drawImage(sourceCanvas || source, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    currentOriginalImage = currentImageCanvas || await loadImageElement(currentImageUrl);
+    renderCanvasPreview(croppedCanvas);
+    els.statusText.textContent = "Scanning cropped area with OCR...";
+    const ocrText = await ocrCanvas(croppedCanvas);
+    els.rawText.value = ocrText;
+    parseAndRender(ocrText);
+    els.statusText.textContent = "Selected area used for OCR. Review the extracted rows and adjust if needed.";
+  } catch (error) {
+    console.error("Crop error:", error);
+    els.statusText.textContent = "Crop failed: " + error.message + ". Try a larger selection.";
+  } finally {
+    setBusy(false);
+  }
 }
 
 function restoreOriginalPreview() {
