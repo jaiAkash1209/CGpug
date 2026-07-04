@@ -244,6 +244,7 @@ p {
   overflow: auto;
   padding: 16px;
   place-items: center;
+  position: relative;
 }
 
 .preview-body img,
@@ -254,6 +255,23 @@ p {
   max-height: 520px;
   max-width: 100%;
   object-fit: contain;
+}
+
+.preview-body.crop-mode {
+  cursor: crosshair;
+}
+
+.preview-crop-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.preview-crop-box {
+  border: 2px dashed var(--accent);
+  background: rgba(15, 118, 110, 0.18);
+  position: absolute;
+  box-sizing: border-box;
 }
 
 .result-area {

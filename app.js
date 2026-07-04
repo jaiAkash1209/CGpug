@@ -82,6 +82,11 @@ let currentFile = null;
 let currentImageUrl = null;
 let currentImageCanvas = null;
 let currentOriginalImage = null;
+let cropMode = false;
+let cropStart = null;
+let cropCurrent = null;
+let cropBox = null;
+let cropLayer = null;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
 
@@ -96,7 +101,7 @@ els.chooseFile.addEventListener("keydown", (event) => {
 });
 els.addRow.addEventListener("click", () => addRow());
 els.clearAll.addEventListener("click", clearAll);
-els.cropImage.addEventListener("click", () => cropCurrentPreview());
+els.cropImage.addEventListener("click", () => toggleCropMode());
 els.parseText.addEventListener("click", () => parseAndRender(els.rawText.value));
 els.resetPreview.addEventListener("click", () => restoreOriginalPreview());
 els.scanAgain.addEventListener("click", () => currentFile && handleFile(currentFile));
@@ -454,41 +459,126 @@ function renderImagePreview(src) {
   const img = document.createElement("img");
   img.alt = "Uploaded result preview";
   img.src = src;
+  img.dataset.role = "preview-image";
   els.previewBody.appendChild(img);
+  setupCropInteraction();
 }
 
 function renderCanvasPreview(canvas) {
   els.previewBody.innerHTML = "";
   if (canvas) {
     currentImageCanvas = canvas;
+    canvas.dataset.role = "preview-canvas";
     els.previewBody.appendChild(canvas);
   }
+  setupCropInteraction();
 }
 
-async function cropCurrentPreview() {
-  if (!currentImageUrl && !currentImageCanvas) {
-    els.statusText.textContent = "Upload an image first to crop it.";
-    return;
+function setupCropInteraction() {
+  const preview = els.previewBody.querySelector("img, canvas");
+  if (!preview) return;
+
+  preview.removeEventListener("mousedown", handleCropStart);
+  preview.addEventListener("mousedown", handleCropStart);
+
+  if (!cropLayer) {
+    cropLayer = document.createElement("div");
+    cropLayer.className = "preview-crop-layer";
+    els.previewBody.appendChild(cropLayer);
   }
 
-  try {
-    const source = currentImageCanvas || await loadImageElement(currentImageUrl);
-    const croppedCanvas = autoCropCanvas(source);
-    if (!croppedCanvas) {
-      els.statusText.textContent = "Could not crop this image. Try a clearer upload.";
-      return;
+  if (!cropBox) {
+    cropBox = document.createElement("div");
+    cropBox.className = "preview-crop-box";
+    cropLayer.appendChild(cropBox);
+  }
+
+  cropLayer.style.display = cropMode ? "block" : "none";
+  cropBox.style.display = "none";
+}
+
+function toggleCropMode() {
+  cropMode = !cropMode;
+  els.previewBody.classList.toggle("crop-mode", cropMode);
+  if (cropLayer) cropLayer.style.display = cropMode ? "block" : "none";
+  if (cropBox) cropBox.style.display = "none";
+  els.statusText.textContent = cropMode ? "Drag on the preview to select the part of the image for OCR." : "Crop mode disabled.";
+}
+
+function handleCropStart(event) {
+  if (!cropMode) return;
+  event.preventDefault();
+  const rect = els.previewBody.getBoundingClientRect();
+  cropStart = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  cropCurrent = { x: cropStart.x, y: cropStart.y };
+  cropBox.style.left = `${cropStart.x}px`;
+  cropBox.style.top = `${cropStart.y}px`;
+  cropBox.style.width = "0px";
+  cropBox.style.height = "0px";
+  cropBox.style.display = "block";
+
+  const onMove = (moveEvent) => {
+    const currentX = moveEvent.clientX - rect.left;
+    const currentY = moveEvent.clientY - rect.top;
+    cropCurrent = { x: currentX, y: currentY };
+    const x = Math.min(cropStart.x, currentX);
+    const y = Math.min(cropStart.y, currentY);
+    const width = Math.max(10, Math.abs(currentX - cropStart.x));
+    const height = Math.max(10, Math.abs(currentY - cropStart.y));
+    cropBox.style.left = `${x}px`;
+    cropBox.style.top = `${y}px`;
+    cropBox.style.width = `${width}px`;
+    cropBox.style.height = `${height}px`;
+  };
+
+  const onUp = async () => {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    if (cropStart && cropCurrent) {
+      await applyCropSelection();
     }
+    cropBox.style.display = "none";
+    cropMode = false;
+    els.previewBody.classList.remove("crop-mode");
+    if (cropLayer) cropLayer.style.display = "none";
+  };
 
-    renderCanvasPreview(croppedCanvas);
-    currentOriginalImage = currentImageCanvas || await loadImageElement(currentImageUrl);
-    const ocrText = await ocrCanvas(croppedCanvas);
-    els.rawText.value = ocrText;
-    parseAndRender(ocrText);
-    els.statusText.textContent = "Preview cropped. Review the extracted rows and adjust if needed.";
-  } catch (error) {
-    console.error(error);
-    els.statusText.textContent = "Could not crop this image. Please try again.";
-  }
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+}
+
+async function applyCropSelection() {
+  if (!currentImageUrl && !currentImageCanvas) return;
+  const preview = els.previewBody.querySelector("img, canvas");
+  if (!preview) return;
+
+  const rect = els.previewBody.getBoundingClientRect();
+  const previewRect = preview.getBoundingClientRect();
+  const scaleX = preview.naturalWidth ? preview.naturalWidth / previewRect.width : 1;
+  const scaleY = preview.naturalHeight ? preview.naturalHeight / previewRect.height : 1;
+  const x = Math.max(0, Math.round((cropStart.x - (previewRect.left - rect.left)) * scaleX));
+  const y = Math.max(0, Math.round((cropStart.y - (previewRect.top - rect.top)) * scaleY));
+  const width = Math.max(1, Math.round((cropCurrent.x - cropStart.x) * scaleX));
+  const height = Math.max(1, Math.round((cropCurrent.y - cropStart.y) * scaleY));
+
+  const source = currentImageCanvas || await loadImageElement(currentImageUrl);
+  const croppedCanvas = document.createElement("canvas");
+  croppedCanvas.width = Math.abs(width);
+  croppedCanvas.height = Math.abs(height);
+  const context = croppedCanvas.getContext("2d");
+  const sx = Math.min(x, x + width);
+  const sy = Math.min(y, y + height);
+  const sw = Math.abs(width);
+  const sh = Math.abs(height);
+  const sourceCanvas = source instanceof HTMLCanvasElement ? source : null;
+  context.drawImage(sourceCanvas || source, sx, sy, sw, sh, 0, 0, sw, sh);
+
+  currentOriginalImage = currentImageCanvas || await loadImageElement(currentImageUrl);
+  renderCanvasPreview(croppedCanvas);
+  const ocrText = await ocrCanvas(croppedCanvas);
+  els.rawText.value = ocrText;
+  parseAndRender(ocrText);
+  els.statusText.textContent = "Selected area used for OCR. Review the extracted rows and adjust if needed.";
 }
 
 function restoreOriginalPreview() {
