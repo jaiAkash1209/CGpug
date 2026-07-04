@@ -189,25 +189,52 @@ async function extractPdf(file) {
 
 async function ocrImage(file) {
   setBusy(true, "Scanning screenshot with OCR...");
-  const result = await Tesseract.recognize(file, "eng", {
-    logger: (message) => {
-      if (message.status === "recognizing text") {
-        els.statusText.textContent = `Scanning screenshot... ${Math.round(message.progress * 100)}%`;
-      }
-    },
-    tessedit_pageseg_mode: "6",
-    preserve_interword_spaces: "1",
-  });
-  return normalizeOcrText(result.data.text);
+  try {
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("OCR timeout - image too large or network slow")), 120000)
+    );
+
+    const ocrPromise = Tesseract.recognize(file, "eng", {
+      logger: (message) => {
+        if (message.status === "recognizing text") {
+          els.statusText.textContent = `Scanning screenshot... ${Math.round(message.progress * 100)}%`;
+        }
+      },
+      tessedit_pageseg_mode: "6",
+      preserve_interword_spaces: "1",
+    });
+
+    const result = await Promise.race([ocrPromise, timeoutPromise]);
+    return normalizeOcrText(result.data.text);
+  } catch (error) {
+    console.error("OCR error:", error);
+    throw error;
+  }
 }
 
 async function ocrCanvas(canvas) {
   setBusy(true, "Scanning PDF page image with OCR...");
-  const result = await Tesseract.recognize(canvas, "eng", {
-    tessedit_pageseg_mode: "6",
-    preserve_interword_spaces: "1",
-  });
-  return normalizeOcrText(result.data.text);
+  try {
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("OCR timeout - canvas image processing slow")), 120000)
+    );
+
+    const ocrPromise = Tesseract.recognize(canvas, "eng", {
+      logger: (message) => {
+        if (message.status === "recognizing text") {
+          els.statusText.textContent = `Scanning image... ${Math.round(message.progress * 100)}%`;
+        }
+      },
+      tessedit_pageseg_mode: "6",
+      preserve_interword_spaces: "1",
+    });
+
+    const result = await Promise.race([ocrPromise, timeoutPromise]);
+    return normalizeOcrText(result.data.text);
+  } catch (error) {
+    console.error("OCR error:", error);
+    throw error;
+  }
 }
 
 function parseAndRender(text) {
