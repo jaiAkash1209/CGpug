@@ -197,15 +197,21 @@ async function ocrCanvas(canvas) {
 function parseAndRender(text) {
   const rows = parseRows(text);
   els.courseRows.innerHTML = "";
-  rows.forEach(addRow);
+
   if (rows.length === 0) {
     addRow();
     els.statusText.textContent = "No full subject rows found. Add or paste rows manually, then enter credits and grades.";
   } else {
+    rows.forEach(addRow);
     const arrears = rows.filter((row) => row.result === "RA" || row.grade === "U" || row.grade === "F" || row.grade === "AB" || row.grade === "CRAP").length;
     const missingCredits = rows.filter((row) => row.credits === "").length;
     els.statusText.textContent = `Found ${rows.length} subject row${rows.length === 1 ? "" : "s"}${arrears ? `, including ${arrears} arrear row${arrears === 1 ? "" : "s"}` : ""}${missingCredits ? `. Add credits for ${missingCredits} row${missingCredits === 1 ? "" : "s"}` : ""}. Review before using the GPA.`;
   }
+
+  if (rows.length < 3) {
+    addRow({ grade: "CRAP", result: "RA", point: gradePoints.CRAP, credits: "" });
+  }
+
   calculate();
   // Auto-save after parsing
   setTimeout(() => autoSaveSubmission(currentFile), 500);
@@ -464,10 +470,12 @@ function normalizeOcrText(text) {
   return String(text || "")
     .replace(/\r/g, "\n")
     .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/[|]/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\s*\n\s*/g, "\n")
     .replace(/([A-Z])\s+(?=[A-Z]\d{2}[A-Z]{2}\d{3})/g, "$1")
     .replace(/\b([A-Z])\s+(?=[A-Z]{2}\d{3})/g, "$1")
+    .replace(/\b([A-Z]{2,})\s+(?=\d)/g, "$1 ")
     .trim();
 }
 
