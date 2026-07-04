@@ -71,7 +71,6 @@ const els = {
   previewBody: document.querySelector("#previewBody"),
   rawText: document.querySelector("#rawText"),
   rowTemplate: document.querySelector("#rowTemplate"),
-  saveResult: document.querySelector("#saveResult"),
   scanAgain: document.querySelector("#scanAgain"),
   statusText: document.querySelector("#statusText"),
 };
@@ -92,7 +91,6 @@ els.chooseFile.addEventListener("keydown", (event) => {
 els.addRow.addEventListener("click", () => addRow());
 els.clearAll.addEventListener("click", clearAll);
 els.parseText.addEventListener("click", () => parseAndRender(els.rawText.value));
-els.saveResult.addEventListener("click", saveSubmission);
 els.scanAgain.addEventListener("click", () => currentFile && handleFile(currentFile));
 
 ["dragenter", "dragover"].forEach((eventName) => {
@@ -348,38 +346,6 @@ function calculate() {
   els.cgpaValue.textContent = cgpa.toFixed(2);
 }
 
-async function saveSubmission() {
-  const rows = getRows();
-  if (!rows.some((row) => row.code)) {
-    els.statusText.textContent = "Add or scan at least one subject row before saving.";
-    return;
-  }
-
-  const formData = new FormData();
-  if (currentFile) formData.append("resultFile", currentFile);
-  formData.append("payload", JSON.stringify({
-    cgpa: els.cgpaValue.textContent,
-    rows,
-    rawText: els.rawText.value,
-    student: extractStudentInfo(els.rawText.value),
-  }));
-
-  els.saveResult.disabled = true;
-  try {
-    const response = await fetch("/api/submissions", {
-      method: "POST",
-      body: formData,
-    });
-    if (!response.ok) throw new Error("Save failed");
-    els.statusText.textContent = "Saved. Open Admin records to view uploaded files and parsed results.";
-  } catch (error) {
-    console.error(error);
-    els.statusText.textContent = "Saving needs the Render Web Service backend. Static hosting can calculate, but cannot store uploads.";
-  } finally {
-    els.saveResult.disabled = false;
-  }
-}
-
 function getRows() {
   return [...els.courseRows.querySelectorAll("tr")].map((row) => ({
     code: row.querySelector(".code").value.trim(),
@@ -433,7 +399,7 @@ function renderCanvasPreview(canvas) {
 }
 
 function setBusy(isBusy, message = "") {
-  [els.scanAgain, els.parseText, els.saveResult].forEach((button) => {
+  [els.scanAgain, els.parseText].forEach((button) => {
     button.disabled = isBusy;
   });
   els.chooseFile.setAttribute("aria-disabled", String(isBusy));
