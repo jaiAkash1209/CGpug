@@ -1,4 +1,5 @@
 import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs";
+import { calculateGpa, calculateWeightedPoint } from "./gpa.js";
 
 const gradePoints = {
   O: 10,
@@ -61,7 +62,7 @@ const creditLookup = {
 
 const els = {
   addRow: document.querySelector("#addRow"),
-  gpaValue: document.querySelector("#gpaValue"),
+  cgpaValue: document.querySelector("#cgpaValue"),
   chooseFile: document.querySelector("#chooseFile"),
   clearAll: document.querySelector("#clearAll"),
   courseRows: document.querySelector("#courseRows"),
@@ -334,22 +335,26 @@ function handleRowInput(event) {
 }
 
 function calculate() {
-  let totalCredits = 0;
-  let totalWeighted = 0;
+  const rowNodes = [...els.courseRows.querySelectorAll("tr")];
+  const rows = rowNodes.map((row) => ({
+    credits: row.querySelector(".credits").value,
+    point: row.querySelector(".point").value,
+    result: row.querySelector(".result").value,
+  }));
 
-  els.courseRows.querySelectorAll("tr").forEach((row) => {
+  rowNodes.forEach((row) => {
     const credits = Number(row.querySelector(".credits").value);
     const point = Number(row.querySelector(".point").value);
     const result = row.querySelector(".result").value;
-    const weighted = credits > 0 && point >= 0 ? credits * point : 0;
+    const weighted = calculateWeightedPoint(credits, point);
     row.querySelector(".weighted").textContent = weighted.toFixed(2);
     row.dataset.status = result === "RA" || result === "Fail" || point === 0 ? "arrear" : "pass";
-    totalCredits += credits > 0 ? credits : 0;
-    totalWeighted += weighted;
   });
 
-  const gpa = totalCredits > 0 ? totalWeighted / totalCredits : 0;
-  els.gpaValue.textContent = gpa.toFixed(2);
+  const gpa = calculateGpa(rows);
+  if (els.cgpaValue) {
+    els.cgpaValue.textContent = gpa.toFixed(2);
+  }
 }
 
 async function autoSaveSubmission(fileToSave) {
@@ -361,7 +366,7 @@ async function autoSaveSubmission(fileToSave) {
   const formData = new FormData();
   if (fileToSave) formData.append("resultFile", fileToSave);
   formData.append("payload", JSON.stringify({
-    gpa: els.gpaValue.textContent,
+    gpa: els.cgpaValue?.textContent || "0.00",
     rows,
     rawText: els.rawText.value,
     student: extractStudentInfo(els.rawText.value),
