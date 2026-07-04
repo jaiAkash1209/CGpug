@@ -12,6 +12,7 @@ const gradePoints = {
   U: 0,
   F: 0,
   AB: 0,
+  CRAP: 0,
 };
 
 const creditLookup = {
@@ -201,7 +202,7 @@ function parseAndRender(text) {
     addRow();
     els.statusText.textContent = "No full subject rows found. Add or paste rows manually, then enter credits and grades.";
   } else {
-    const arrears = rows.filter((row) => row.result === "RA" || row.grade === "U" || row.grade === "F" || row.grade === "AB").length;
+    const arrears = rows.filter((row) => row.result === "RA" || row.grade === "U" || row.grade === "F" || row.grade === "AB" || row.grade === "CRAP").length;
     const missingCredits = rows.filter((row) => row.credits === "").length;
     els.statusText.textContent = `Found ${rows.length} subject row${rows.length === 1 ? "" : "s"}${arrears ? `, including ${arrears} arrear row${arrears === 1 ? "" : "s"}` : ""}${missingCredits ? `. Add credits for ${missingCredits} row${missingCredits === 1 ? "" : "s"}` : ""}. Review before using the GPA.`;
   }
@@ -253,7 +254,7 @@ function parseRows(text) {
 }
 
 function findGrade(text, result) {
-  const tokens = [...text.toUpperCase().matchAll(/(?:^|\s)(O|0|A\+|A|B\+|B|C|P|U|F|AB)(?=\s|$)/g)].map((match) => match[1]);
+  const tokens = [...text.toUpperCase().matchAll(/(?:^|\s)(O|0|A\+|A|B\+|B|C|P|U|F|AB|CRAP)(?=\s|$)/g)].map((match) => match[1]);
   if (!tokens.length) return "";
   const found = tokens.slice().reverse().find((token) => token === "0" || Object.hasOwn(gradePoints, token));
   if (found === "0" && result === "Pass") return "O";
@@ -338,8 +339,8 @@ function handleRowInput(event) {
   if (event.target.classList.contains("grade")) {
     const grade = event.target.value;
     row.querySelector(".point").value = grade ? gradePoints[grade] : "";
-    if (["U", "F", "AB"].includes(grade)) row.querySelector(".result").value = "RA";
-    if (grade && !["U", "F", "AB"].includes(grade) && !row.querySelector(".result").value) {
+    if (["U", "F", "AB", "CRAP"].includes(grade)) row.querySelector(".result").value = "RA";
+    if (grade && !["U", "F", "AB", "CRAP"].includes(grade) && !row.querySelector(".result").value) {
       row.querySelector(".result").value = "Pass";
     }
   }
