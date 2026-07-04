@@ -556,20 +556,25 @@ async function applyCropSelection() {
   const previewRect = preview.getBoundingClientRect();
   const scaleX = preview.naturalWidth ? preview.naturalWidth / previewRect.width : 1;
   const scaleY = preview.naturalHeight ? preview.naturalHeight / previewRect.height : 1;
-  const x = Math.max(0, Math.round((cropStart.x - (previewRect.left - rect.left)) * scaleX));
-  const y = Math.max(0, Math.round((cropStart.y - (previewRect.top - rect.top)) * scaleY));
-  const width = Math.max(1, Math.round((cropCurrent.x - cropStart.x) * scaleX));
-  const height = Math.max(1, Math.round((cropCurrent.y - cropStart.y) * scaleY));
+  let x = Math.max(0, Math.round((cropStart.x - (previewRect.left - rect.left)) * scaleX));
+  let y = Math.max(0, Math.round((cropStart.y - (previewRect.top - rect.top)) * scaleY));
+  let width = Math.max(1, Math.round((cropCurrent.x - cropStart.x) * scaleX));
+  let height = Math.max(1, Math.round((cropCurrent.y - cropStart.y) * scaleY));
 
   const source = currentImageCanvas || await loadImageElement(currentImageUrl);
+  const sourceWidth = source.naturalWidth || source.width;
+  const sourceHeight = source.naturalHeight || source.height;
+
+  const padding = Math.round(Math.max(sourceWidth, sourceHeight) * 0.15);
+  const sx = Math.max(0, Math.min(x, x + width) - padding);
+  const sy = Math.max(0, Math.min(y, y + height) - padding);
+  const sw = Math.min(sourceWidth - sx, Math.abs(width) + padding * 2);
+  const sh = Math.min(sourceHeight - sy, Math.abs(height) + padding * 2);
+
   const croppedCanvas = document.createElement("canvas");
-  croppedCanvas.width = Math.abs(width);
-  croppedCanvas.height = Math.abs(height);
+  croppedCanvas.width = sw;
+  croppedCanvas.height = sh;
   const context = croppedCanvas.getContext("2d");
-  const sx = Math.min(x, x + width);
-  const sy = Math.min(y, y + height);
-  const sw = Math.abs(width);
-  const sh = Math.abs(height);
   const sourceCanvas = source instanceof HTMLCanvasElement ? source : null;
   context.drawImage(sourceCanvas || source, sx, sy, sw, sh, 0, 0, sw, sh);
 
@@ -578,7 +583,7 @@ async function applyCropSelection() {
   const ocrText = await ocrCanvas(croppedCanvas);
   els.rawText.value = ocrText;
   parseAndRender(ocrText);
-  els.statusText.textContent = "Selected area used for OCR. Review the extracted rows and adjust if needed.";
+  els.statusText.textContent = "Selected area used for OCR (expanded for full context). Review the extracted rows and adjust if needed.";
 }
 
 function restoreOriginalPreview() {
