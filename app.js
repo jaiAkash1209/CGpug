@@ -12,7 +12,6 @@ const gradePoints = {
   U: 0,
   F: 0,
   AB: 0,
-  CRAP: 0,
 };
 
 const creditLookup = {
@@ -66,18 +65,23 @@ const els = {
   cgpaValue: document.querySelector("#cgpaValue"),
   chooseFile: document.querySelector("#chooseFile"),
   clearAll: document.querySelector("#clearAll"),
+  cropImage: document.querySelector("#cropImage"),
   courseRows: document.querySelector("#courseRows"),
   dropZone: document.querySelector("#dropZone"),
   fileInput: document.querySelector("#fileInput"),
   parseText: document.querySelector("#parseText"),
   previewBody: document.querySelector("#previewBody"),
   rawText: document.querySelector("#rawText"),
+  resetPreview: document.querySelector("#resetPreview"),
   rowTemplate: document.querySelector("#rowTemplate"),
   scanAgain: document.querySelector("#scanAgain"),
   statusText: document.querySelector("#statusText"),
 };
 
 let currentFile = null;
+let currentImageUrl = null;
+let currentImageCanvas = null;
+let currentOriginalImage = null;
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
 
@@ -92,7 +96,9 @@ els.chooseFile.addEventListener("keydown", (event) => {
 });
 els.addRow.addEventListener("click", () => addRow());
 els.clearAll.addEventListener("click", clearAll);
+els.cropImage.addEventListener("click", () => cropCurrentPreview());
 els.parseText.addEventListener("click", () => parseAndRender(els.rawText.value));
+els.resetPreview.addEventListener("click", () => restoreOriginalPreview());
 els.scanAgain.addEventListener("click", () => currentFile && handleFile(currentFile));
 
 ["dragenter", "dragover"].forEach((eventName) => {
@@ -131,6 +137,9 @@ async function handleFile(file) {
       }
     } else {
       const imageUrl = URL.createObjectURL(file);
+      currentImageUrl = imageUrl;
+      currentImageCanvas = null;
+      currentOriginalImage = null;
       renderImagePreview(imageUrl);
       const text = await ocrImage(file);
       els.rawText.value = text;
@@ -203,13 +212,9 @@ function parseAndRender(text) {
     els.statusText.textContent = "No full subject rows found. Add or paste rows manually, then enter credits and grades.";
   } else {
     rows.forEach(addRow);
-    const arrears = rows.filter((row) => row.result === "RA" || row.grade === "U" || row.grade === "F" || row.grade === "AB" || row.grade === "CRAP").length;
+    const arrears = rows.filter((row) => row.result === "RA" || row.grade === "U" || row.grade === "F" || row.grade === "AB").length;
     const missingCredits = rows.filter((row) => row.credits === "").length;
     els.statusText.textContent = `Found ${rows.length} subject row${rows.length === 1 ? "" : "s"}${arrears ? `, including ${arrears} arrear row${arrears === 1 ? "" : "s"}` : ""}${missingCredits ? `. Add credits for ${missingCredits} row${missingCredits === 1 ? "" : "s"}` : ""}. Review before using the GPA.`;
-  }
-
-  if (rows.length < 3) {
-    addRow({ grade: "CRAP", result: "RA", point: gradePoints.CRAP, credits: "" });
   }
 
   calculate();
@@ -260,7 +265,7 @@ function parseRows(text) {
 }
 
 function findGrade(text, result) {
-  const tokens = [...text.toUpperCase().matchAll(/(?:^|\s)(O|0|A\+|A|B\+|B|C|P|U|F|AB|CRAP)(?=\s|$)/g)].map((match) => match[1]);
+  const tokens = [...text.toUpperCase().matchAll(/(?:^|\s)(O|0|A\+|A|B\+|B|C|P|U|F|AB)(?=\s|$)/g)].map((match) => match[1]);
   if (!tokens.length) return "";
   const found = tokens.slice().reverse().find((token) => token === "0" || Object.hasOwn(gradePoints, token));
   if (found === "0" && result === "Pass") return "O";
@@ -345,8 +350,8 @@ function handleRowInput(event) {
   if (event.target.classList.contains("grade")) {
     const grade = event.target.value;
     row.querySelector(".point").value = grade ? gradePoints[grade] : "";
-    if (["U", "F", "AB", "CRAP"].includes(grade)) row.querySelector(".result").value = "RA";
-    if (grade && !["U", "F", "AB", "CRAP"].includes(grade) && !row.querySelector(".result").value) {
+    if (["U", "F", "AB"].includes(grade)) row.querySelector(".result").value = "RA";
+    if (grade && !["U", "F", "AB"].includes(grade) && !row.querySelector(".result").value) {
       row.querySelector(".result").value = "Pass";
     }
   }
@@ -454,7 +459,102 @@ function renderImagePreview(src) {
 
 function renderCanvasPreview(canvas) {
   els.previewBody.innerHTML = "";
-  if (canvas) els.previewBody.appendChild(canvas);
+  if (canvas) {
+    currentImageCanvas = canvas;
+    els.previewBody.appendChild(canvas);
+  }
+}
+
+async function cropCurrentPreview() {
+  if (!currentImageUrl && !currentImageCanvas) {
+    els.statusText.textContent = "Upload an image first to crop it.";
+    return;
+  }
+
+  try {
+    const source = currentImageCanvas || await loadImageElement(currentImageUrl);
+    const croppedCanvas = autoCropCanvas(source);
+    if (!croppedCanvas) {
+      els.statusText.textContent = "Could not crop this image. Try a clearer upload.";
+      return;
+    }
+
+    renderCanvasPreview(croppedCanvas);
+    currentOriginalImage = currentImageCanvas || await loadImageElement(currentImageUrl);
+    const ocrText = await ocrCanvas(croppedCanvas);
+    els.rawText.value = ocrText;
+    parseAndRender(ocrText);
+    els.statusText.textContent = "Preview cropped. Review the extracted rows and adjust if needed.";
+  } catch (error) {
+    console.error(error);
+    els.statusText.textContent = "Could not crop this image. Please try again.";
+  }
+}
+
+function restoreOriginalPreview() {
+  if (!currentImageUrl) return;
+  if (currentOriginalImage) {
+    renderCanvasPreview(currentOriginalImage);
+  } else {
+    renderImagePreview(currentImageUrl);
+  }
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+function autoCropCanvas(source) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const sourceCanvas = source instanceof HTMLCanvasElement ? source : null;
+  const width = sourceCanvas ? sourceCanvas.width : source.naturalWidth;
+  const height = sourceCanvas ? sourceCanvas.height : source.naturalHeight;
+
+  if (!width || !height) return null;
+
+  canvas.width = width;
+  canvas.height = height;
+  ctx.drawImage(sourceCanvas || source, 0, 0, width, height);
+
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      const alpha = data[index + 3];
+      const isBackground = alpha < 180 && data[index] > 240 && data[index + 1] > 240 && data[index + 2] > 240;
+      if (alpha > 20 && !isBackground) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+
+  if (minX > maxX || minY > maxY) {
+    return canvas;
+  }
+
+  const cropWidth = Math.max(1, maxX - minX + 1);
+  const cropHeight = Math.max(1, maxY - minY + 1);
+  const croppedCanvas = document.createElement("canvas");
+  croppedCanvas.width = cropWidth;
+  croppedCanvas.height = cropHeight;
+  const croppedContext = croppedCanvas.getContext("2d");
+  croppedContext.drawImage(canvas, minX, minY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+  return croppedCanvas;
 }
 
 function setBusy(isBusy, message = "") {
