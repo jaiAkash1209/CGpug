@@ -1,35 +1,38 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Records - Result CGPA Scanner</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main class="app-shell">
-      <section class="workspace">
-        <header class="topbar">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Records - Result CGPA Scanner</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <main class="app-shell">
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Saved submissions</p>
+          <h1>Admin Records</h1>
+        </div>
+        <a class="file-button" href="index.html">Calculator</a>
+      </header>
+
+      <section class="result-area">
+        <div class="actions-row">
           <div>
-            <p class="eyebrow">Saved submissions</p>
-            <h1>Admin Records</h1>
+            <h2>Uploaded Results</h2>
+            <p id="adminStatus">Loading saved records...</p>
           </div>
-          <a class="file-button" href="index.html">Calculator</a>
-        </header>
-
-        <section class="result-area">
-          <div class="actions-row">
-            <div>
-              <h2>Uploaded Results</h2>
-              <p id="adminStatus">Loading saved records...</p>
-            </div>
-            <button type="button" id="refreshRecords">Refresh</button>
-          </div>
-          <div id="recordsList" class="records-list"></div>
-        </section>
+          <button type="button" id="refreshRecords">Refresh</button>
+        </div>
+        <div id="recordsList" class="records-list"></div>
       </section>
-    </main>
+    </section>
+  </main>
 
-    <script src="admin.js" type="module"></script>
-  </body>
+  <script src="admin.js" type="module"></script>
+</body>
+
 </html>
